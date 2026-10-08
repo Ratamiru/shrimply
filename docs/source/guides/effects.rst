@@ -19,6 +19,31 @@ also includes model-backed segmentation and transparent-fill operations.
 Modifiers are applied in ordered stages so 3D, vector, rasterization, and
 raster operations can be composed without silently changing their data type.
 
+For fast-cut edits, **Shake** moves, rotates, and scales a visual about the
+canvas center along smooth noise; keyframe its amplitude to hit beats.
+**Flash** raises exposure in stops and mixes toward a color. **Glow** sums
+several blur levels and can be tinted, **Chromatic aberration** has linear and
+radial modes, and **Noise** can pick a new grain pattern several times per
+second.
+
+Retiming
+--------
+
+A video clip's **Speed ramp** multiplies its speed and can be keyframed: the
+source advances by the area under the curve, so eased keyframes produce smooth
+speed ramps. Expressions on the speed ramp are ignored. The clip **Frame rate**
+holds each source frame for one frame of the chosen rate, like posterizing
+time.
+
+Clip transitions
+----------------
+
+**Mirror Mosaic** multiplies the frame into a grid of mirrored tiles, switches
+clips at the densest point, and returns to a single frame. **Scale Transform**
+zooms the outgoing clip toward the center and continues the same zoom into the
+incoming clip, filling the edges with mirrored tiles. Both use the transition
+curve, center, direction, and per-axis mirroring.
+
 Audio effects
 -------------
 
