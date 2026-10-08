@@ -52,8 +52,8 @@ pub(crate) mod device {
     }
 
     fn bilinear(input: *const u32, width: u32, height: u32, x: f32, y: f32) -> math::Color {
-        let x0 = x.floor();
-        let y0 = y.floor();
+        let x0 = math::floor_f32(x);
+        let y0 = math::floor_f32(y);
         let fx = x - x0;
         let fy = y - y0;
         let at = |sx: f32, sy: f32| {
