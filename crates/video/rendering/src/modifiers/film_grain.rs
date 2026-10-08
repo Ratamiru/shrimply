@@ -6,13 +6,17 @@ use cuda_core::LaunchConfig;
 use cuda_device::{DisjointSlice, kernel};
 use shrimply_evaluation::resolve_scalar;
 use shrimply_video_modifiers::film_grain::FilmGrainModifier;
+
+/// Odd multiplier that spreads consecutive animation steps across the hash input space.
+const GRAIN_STEP_SALT: u32 = 0x9e37_79b9;
+const MAX_GRAIN_ANIMATION_RATE: f32 = 240.0;
 #[kernel]
-fn film_grain(_: *const u32, _: u32, _: DisjointSlice<u32>, _: f32, _: f32, _: f32, _: f32) {}
+fn film_grain(_: *const u32, _: u32, _: DisjointSlice<u32>, _: f32, _: f32, _: f32, _: u32) {}
 struct Resolved {
     amount: f32,
     size: f32,
     colored: f32,
-    seed: f32,
+    seed: u32,
 }
 impl GpuModifier for Resolved {
     fn name(&self) -> &'static str {
@@ -55,11 +59,16 @@ impl RasterModifierRuntime for FilmGrainModifier {
         c: &mut VisualModifierContext<'_>,
     ) -> Result<RasterVisual, String> {
         let mut r = |x| resolve_scalar(x, c.evaluation, c.expressions);
+        let rate = r(&self.animation_rate).clamp(0., MAX_GRAIN_ANIMATION_RATE);
+        let step = shrimply_math_core::time_step_index(
+            c.evaluation.local_time().seconds,
+            shrimply_math_core::fraction_from_f64(f64::from(rate)),
+        );
         input.push_pixel(Box::new(Resolved {
             amount: r(&self.amount).clamp(0., 2.),
             size: r(&self.size).clamp(1., 256.),
             colored: r(&self.colored).clamp(0., 1.),
-            seed: r(&self.seed),
+            seed: (r(&self.seed) as u32).wrapping_add((step as u32).wrapping_mul(GRAIN_STEP_SALT)),
         }));
         Ok(input)
     }

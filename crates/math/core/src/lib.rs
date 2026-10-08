@@ -300,6 +300,11 @@ pub fn fraction_floor_i64(value: Fraction) -> Option<i64> {
     i64::try_from(numerator.div_euclid(denominator)).ok()
 }
 
+/// Index of the discrete step reached after `seconds` when advancing `rate` steps per second.
+pub fn time_step_index(seconds: Fraction, rate: Fraction) -> i64 {
+    fraction_floor_i64(seconds * rate).unwrap_or(0)
+}
+
 pub fn fraction_rem_euclid(value: Fraction, modulus: Fraction) -> Option<Fraction> {
     if modulus <= FRACTION_ZERO {
         return None;

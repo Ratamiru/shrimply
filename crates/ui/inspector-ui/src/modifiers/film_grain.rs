@@ -52,4 +52,16 @@ pub fn add_rows(value: &FilmGrainModifier, out: &gtk::Box, id: Uuid, context: &I
         },
         context,
     ));
+    out.append(&scalar_row(
+        "Animation rate",
+        &value.animation_rate,
+        id,
+        ScalarOptions {
+            minimum: Some(0.0),
+            maximum: Some(240.0),
+            unit: Some("fps"),
+            rotating: false,
+        },
+        context,
+    ));
 }

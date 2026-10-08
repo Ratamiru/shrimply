@@ -4,12 +4,19 @@ use serde::{Deserialize, Serialize};
 use shrimply_core::timeline_value::*;
 use uuid::Uuid;
 
+fn default_animation_rate() -> TimelineValue<f32> {
+    TimelineValue::<f32>::new_const(0.0)
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FilmGrainModifier {
     pub amount: TimelineValue<f32>,
     pub size: TimelineValue<f32>,
     pub colored: TimelineValue<f32>,
     pub seed: TimelineValue<f32>,
+    /// New grain patterns per second; zero keeps the grain static.
+    #[serde(default = "default_animation_rate")]
+    pub animation_rate: TimelineValue<f32>,
 }
 
 impl Default for FilmGrainModifier {
@@ -19,6 +26,7 @@ impl Default for FilmGrainModifier {
             size: TimelineValue::<f32>::new_const(1.0),
             colored: TimelineValue::<f32>::new_const(0.0),
             seed: TimelineValue::<f32>::new_const(0.0),
+            animation_rate: TimelineValue::<f32>::new_const(24.0),
         }
     }
 }
@@ -37,6 +45,7 @@ impl ModifierModel for FilmGrainModifier {
         ensure_timeline_value_ids(&mut self.size, seen);
         ensure_timeline_value_ids(&mut self.colored, seen);
         ensure_timeline_value_ids(&mut self.seed, seen);
+        ensure_timeline_value_ids(&mut self.animation_rate, seen);
     }
 
     fn keyframe_span(&self) -> KeyframeSpan {
@@ -45,13 +54,20 @@ impl ModifierModel for FilmGrainModifier {
             timeline_value_span(&self.size),
             timeline_value_span(&self.colored),
             timeline_value_span(&self.seed),
+            timeline_value_span(&self.animation_rate),
         ])
     }
 
     fn number(&self, id: Uuid) -> Option<&TimelineValue<f32>> {
-        [&self.amount, &self.size, &self.colored, &self.seed]
-            .into_iter()
-            .find(|value| value.id == id)
+        [
+            &self.amount,
+            &self.size,
+            &self.colored,
+            &self.seed,
+            &self.animation_rate,
+        ]
+        .into_iter()
+        .find(|value| value.id == id)
     }
 
     fn number_mut(&mut self, id: Uuid) -> Option<&mut TimelineValue<f32>> {
@@ -60,6 +76,7 @@ impl ModifierModel for FilmGrainModifier {
             &mut self.size,
             &mut self.colored,
             &mut self.seed,
+            &mut self.animation_rate,
         ]
         .into_iter()
         .find(|value| value.id == id)

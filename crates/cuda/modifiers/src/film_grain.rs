@@ -25,7 +25,7 @@ pub(crate) mod device {
         amount: f32,
         size: f32,
         colored: f32,
-        seed: f32,
+        seed: u32,
     ) {
         let idx = thread::index_1d();
         let i = idx.get();
@@ -34,9 +34,7 @@ pub(crate) mod device {
         let block = size.round().max(1.0) as u32;
         let x = (i as u32 % width) / block;
         let y = (i as u32 / width) / block;
-        let base = x
-            .wrapping_add(y.wrapping_mul(65537))
-            .wrapping_add(seed as u32);
+        let base = x.wrapping_add(y.wrapping_mul(65537)).wrapping_add(seed);
         let n = |s: u32| (hash(base.wrapping_add(s)) - 0.5) * amount;
         let mono = n(0);
         let mix = colored.clamp(0.0, 1.0);
