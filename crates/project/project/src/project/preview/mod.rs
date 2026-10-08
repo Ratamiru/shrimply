@@ -174,6 +174,24 @@ fn resolved_paint_modifiers(
             shrimply_video_modifiers::VectorModifierEffect::TextMask(_) => {
                 panic!("text mask modifier cannot be applied to paint")
             }
+            shrimply_video_modifiers::VectorModifierEffect::Shake(effect) => {
+                let shake = shrimply_math_media::Shake {
+                    amplitude: builder.resolve(&effect.amplitude),
+                    offset: builder.resolve(&effect.offset),
+                    rotation_degrees: builder.resolve(&effect.rotation_degrees),
+                    scale_percent: builder.resolve(&effect.scale),
+                    frequency: builder.resolve(&effect.frequency),
+                    seed: builder.resolve(&effect.seed),
+                };
+                canvas_operations.push(CanvasOperation::Transform(
+                    shrimply_math_media::shake_transform(
+                        shake,
+                        builder.viewport().canvas_size * 0.5,
+                        builder.local_time().seconds,
+                    )
+                    .composed(),
+                ));
+            }
         }
     }
     (path_offsets, shaky_paths, canvas_operations)

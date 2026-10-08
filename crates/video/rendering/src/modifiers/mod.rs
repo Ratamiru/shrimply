@@ -36,6 +36,7 @@ mod repeat;
 pub(crate) mod sam2;
 mod sampling;
 mod scanlines_crt;
+mod shake;
 mod shaky_path;
 mod sharpen;
 mod stabilization_warp;
@@ -153,6 +154,7 @@ fn vector_runtime(effect: &VectorModifierEffect) -> &dyn VectorModifierRuntime {
         VectorModifierEffect::Opacity(effect) => effect,
         VectorModifierEffect::Hsv(effect) => effect,
         VectorModifierEffect::TextMask(effect) => effect,
+        VectorModifierEffect::Shake(effect) => &**effect,
     }
 }
 
@@ -203,6 +205,7 @@ fn raster_runtime(effect: &RasterModifierEffect) -> &dyn RasterModifierRuntime {
         RasterModifierEffect::ZoomBlur(effect) => effect,
         RasterModifierEffect::ErodeDilate(effect) => effect,
         RasterModifierEffect::ColorCorrection(effect) => &**effect,
+        RasterModifierEffect::Shake(effect) => &**effect,
     }
 }
 

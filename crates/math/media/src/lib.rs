@@ -844,3 +844,89 @@ pub fn transition_progress(
     (elapsed >= 0 && elapsed <= duration)
         .then_some((elapsed as f64 / duration as f64).clamp(0.0, 1.0) as f32)
 }
+
+/// Resolved camera shake properties.
+#[derive(Clone, Copy, Debug)]
+pub struct Shake {
+    /// Multiplies every extent.
+    pub amplitude: f32,
+    pub offset: glam::Vec2,
+    pub rotation_degrees: f32,
+    pub scale_percent: f32,
+    /// Noise targets per second.
+    pub frequency: f32,
+    pub seed: f32,
+}
+
+const SHAKE_MAX_FREQUENCY: f32 = 240.0;
+const PERCENT: f32 = 100.0;
+
+/// Independent noise channels so position, rotation and scale never move in lockstep.
+const SHAKE_CHANNEL_X: u32 = 0;
+const SHAKE_CHANNEL_Y: u32 = 1;
+const SHAKE_CHANNEL_ROTATION: u32 = 2;
+const SHAKE_CHANNEL_SCALE: u32 = 3;
+
+/// Smooth value noise in `[-1, 1]` that changes its target once per unit of `phase`.
+pub fn smooth_noise(seed: u32, channel: u32, phase: Fraction) -> f32 {
+    let index = shrimply_math_core::fraction_floor_i64(phase).unwrap_or(0);
+    let progress = shrimply_math_core::fraction_as_f64(
+        phase - shrimply_math_core::fraction_from_integer(index),
+    ) as f32;
+    let progress = progress * progress * (3.0 - 2.0 * progress);
+    let left = lattice_noise(seed, channel, index);
+    let right = lattice_noise(seed, channel, index.wrapping_add(1));
+    left + (right - left) * progress
+}
+
+fn lattice_noise(seed: u32, channel: u32, index: i64) -> f32 {
+    // SplitMix64 finalizer over the seed, channel and lattice index.
+    let mut value = (u64::from(seed) << 32 | u64::from(channel))
+        ^ (index as u64).wrapping_mul(0x9e37_79b9_7f4a_7c15);
+    value = (value ^ (value >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+    value = (value ^ (value >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+    value ^= value >> 31;
+    (value >> NOISE_DISCARDED_BITS) as f32 / NOISE_RANGE * 2.0 - 1.0
+}
+
+/// Keep the 24 high bits, which an `f32` mantissa represents exactly.
+const NOISE_DISCARDED_BITS: u32 = 40;
+const NOISE_RANGE: f32 = (1u64 << (u64::BITS - NOISE_DISCARDED_BITS)) as f32;
+
+/// Shake about `center` at `seconds` of item time.
+pub fn shake_transform(
+    shake: Shake,
+    center: glam::Vec2,
+    seconds: Fraction,
+) -> shrimply_math_geometry::ResolvedTransform2D {
+    let frequency = shake.frequency.clamp(0.0, SHAKE_MAX_FREQUENCY);
+    let phase = seconds * shrimply_math_core::fraction_from_f64(f64::from(frequency));
+    let seed = shake.seed as u32;
+    let noise = |channel| smooth_noise(seed, channel, phase) * shake.amplitude;
+    shrimply_math_geometry::ResolvedTransform2D {
+        position: center
+            + shake.offset * glam::Vec2::new(noise(SHAKE_CHANNEL_X), noise(SHAKE_CHANNEL_Y)),
+        anchor: center,
+        scale: glam::Vec2::splat(1.0 + shake.scale_percent / PERCENT * noise(SHAKE_CHANNEL_SCALE)),
+        shear: glam::Vec2::ZERO,
+        rotation_degrees: shake.rotation_degrees * noise(SHAKE_CHANNEL_ROTATION),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn smooth_noise_stays_in_range_and_hits_lattice_values() {
+        for step in 0..256 {
+            let phase = Fraction::new(step as u64, 16u64);
+            let value = smooth_noise(7, SHAKE_CHANNEL_X, phase);
+            assert!((-1.0..=1.0).contains(&value), "{value}");
+        }
+        assert_eq!(
+            smooth_noise(7, SHAKE_CHANNEL_Y, Fraction::from(3)),
+            lattice_noise(7, SHAKE_CHANNEL_Y, 3)
+        );
+    }
+}

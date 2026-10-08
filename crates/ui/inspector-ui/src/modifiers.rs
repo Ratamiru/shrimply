@@ -153,6 +153,8 @@ mod sam2;
 mod sampling;
 #[path = "modifiers/scanlines_crt.rs"]
 mod scanlines_crt;
+#[path = "modifiers/shake.rs"]
+mod shake;
 #[path = "modifiers/shaky_path.rs"]
 mod shaky_path;
 #[path = "modifiers/shape_3d.rs"]
@@ -302,6 +304,11 @@ fn modifier_item(
             VectorModifierEffect::TextMask(value) => {
                 item!(value, text_mask, |value| ModifierEffect::vector(
                     VectorModifierEffect::TextMask(value)
+                ))
+            }
+            VectorModifierEffect::Shake(value) => {
+                item!(value, shake, |value| ModifierEffect::vector(
+                    VectorModifierEffect::Shake(value)
                 ))
             }
         },
@@ -531,6 +538,11 @@ fn modifier_item(
             RasterModifierEffect::ColorCorrection(value) => {
                 item!(value, color_correction, |value| ModifierEffect::raster(
                     RasterModifierEffect::ColorCorrection(value)
+                ))
+            }
+            RasterModifierEffect::Shake(value) => {
+                item!(value, shake, |value| ModifierEffect::raster(
+                    RasterModifierEffect::Shake(value)
                 ))
             }
         },

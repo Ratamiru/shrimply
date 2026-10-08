@@ -51,6 +51,7 @@ pub mod sam2;
 pub mod sampling;
 pub mod scanlines_crt;
 pub use shrimply_scene_3d_modifiers as scene_3d;
+pub mod shake;
 pub mod shaky_path;
 pub mod sharpen;
 pub mod text_mask;
@@ -213,6 +214,7 @@ pub enum VectorModifierEffect {
     Opacity(opacity::OpacityModifier),
     Hsv(hsv::HsvModifier),
     TextMask(text_mask::TextMaskModifier),
+    Shake(Box<shake::ShakeModifier>),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -263,6 +265,7 @@ pub enum RasterModifierEffect {
     ZoomBlur(zoom_blur::ZoomBlurModifier),
     ErodeDilate(erode_dilate::ErodeDilateModifier),
     ColorCorrection(Box<color_correction::ColorCorrectionModifier>),
+    Shake(Box<shake::ShakeModifier>),
 }
 
 impl VectorModifierEffect {
@@ -274,6 +277,7 @@ impl VectorModifierEffect {
         || Self::PathOffset(Default::default()),
         || Self::Hsv(Default::default()),
         || Self::TextMask(Default::default()),
+        || Self::Shake(Default::default()),
     ];
 }
 
@@ -402,6 +406,7 @@ impl_modifier_model_enum!(
     Opacity,
     Hsv,
     TextMask,
+    Shake,
 );
 impl_modifier_model_enum!(
     RasterModifierEffect,
@@ -450,6 +455,7 @@ impl_modifier_model_enum!(
     ZoomBlur,
     ErodeDilate,
     ColorCorrection,
+    Shake,
 );
 impl_modifier_model_enum!(
     ModifierEffect,
@@ -553,7 +559,8 @@ impl VectorModifierEffect {
             | Self::PathOffset(_)
             | Self::Opacity(_)
             | Self::Hsv(_)
-            | Self::TextMask(_) => None,
+            | Self::TextMask(_)
+            | Self::Shake(_) => None,
         }
     }
 }
@@ -636,7 +643,7 @@ impl RasterModifierEffect {
 
 type ModifierAdapter = fn(&ModifierEffect, ModifierState) -> Option<ModifierEffect>;
 
-const MODIFIER_ADAPTERS: &[ModifierAdapter] = &[adapt_transform, adapt_opacity];
+const MODIFIER_ADAPTERS: &[ModifierAdapter] = &[adapt_transform, adapt_opacity, adapt_shake];
 
 fn adapt_transform(effect: &ModifierEffect, input: ModifierState) -> Option<ModifierEffect> {
     let value = match effect {
@@ -682,6 +689,31 @@ fn adapt_opacity(effect: &ModifierEffect, input: ModifierState) -> Option<Modifi
             value.clone(),
         ))),
         VisualKind::Raster => Some(ModifierEffect::raster(RasterModifierEffect::Opacity(
+            value.clone(),
+        ))),
+        VisualKind::Scene3d | VisualKind::Manim | VisualKind::Background => None,
+    }
+}
+
+fn adapt_shake(effect: &ModifierEffect, input: ModifierState) -> Option<ModifierEffect> {
+    let value = match effect {
+        ModifierEffect::Vector(effect) => match &**effect {
+            VectorModifierEffect::Shake(value) => value,
+            _ => return None,
+        },
+        ModifierEffect::Raster(effect) => match &**effect {
+            RasterModifierEffect::Shake(value) => value,
+            _ => return None,
+        },
+        ModifierEffect::Scene3d(_)
+        | ModifierEffect::Vectorize(_)
+        | ModifierEffect::Rasterize(_) => return None,
+    };
+    match input.kind {
+        VisualKind::Vector => Some(ModifierEffect::vector(VectorModifierEffect::Shake(
+            value.clone(),
+        ))),
+        VisualKind::Raster => Some(ModifierEffect::raster(RasterModifierEffect::Shake(
             value.clone(),
         ))),
         VisualKind::Scene3d | VisualKind::Manim | VisualKind::Background => None,
