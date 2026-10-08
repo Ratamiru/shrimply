@@ -14,7 +14,9 @@ use shrimply_ui_foundation::ui::switch_row;
 
 use crate::InspectedItem as SelectedItem;
 use crate::player_state::{self, ProjectChange, SharedPlayerState};
+use crate::timeline_value::scalar::{ScalarAccess, ScalarSpec, ScalarTarget, scalar_control};
 use crate::ui::{NumberPicker, dropdown};
+use shrimply_core::timeline_value::TimelineValue;
 
 use super::super::{
     Inspectable, InspectorContext,
@@ -377,4 +379,75 @@ fn update_video_speed(
             ..ProjectChange::default()
         },
     );
+}
+
+struct SpeedRamp(TimelineValue<f32>);
+
+impl Default for SpeedRamp {
+    fn default() -> Self {
+        Self(shrimply_project::project::default_speed_ramp())
+    }
+}
+
+pub(super) fn speed_ramp_item(item: &VideoItem) -> InspectorListItem {
+    DefaultInspectorItem::new(
+        "speed-ramp",
+        "Speed ramp",
+        SpeedRamp(item.speed_ramp.clone()),
+        speed_ramp_controls,
+        |context, value: SpeedRamp| {
+            apply_video_reset(context, "reset-video-speed-ramp", move |item| {
+                item.speed_ramp = value.0
+            });
+        },
+    )
+    .boxed()
+}
+
+/// Largest speed ramp multiplier offered by the inspector, in either direction.
+const MAX_SPEED_RAMP: f32 = 10.0;
+
+fn speed_ramp_controls(value: &SpeedRamp, context: &InspectorContext) -> Vec<gtk::Widget> {
+    let section = InspectorSection::controls();
+    section.add_wide_control(&scalar_control(
+        "Speed",
+        &value.0,
+        context,
+        ScalarTarget {
+            access: ScalarAccess::Item {
+                get: speed_ramp,
+                get_mut: speed_ramp_mut,
+            },
+            scope_id: Some(value.0.id),
+            local_time: super::visual_local_time,
+            duration: super::visual_duration,
+            refresh: ProjectChange {
+                video: true,
+                ..Default::default()
+            },
+            commit_name: "video-speed-ramp",
+        },
+        ScalarSpec {
+            drag_step: 1.0,
+            digits: 0,
+            integer: false,
+            width_chars: 9,
+            minimum: Some(f64::from(-MAX_SPEED_RAMP) * 100.0),
+            maximum: Some(f64::from(MAX_SPEED_RAMP) * 100.0),
+            unit_name: Some("%"),
+            rotating_icon: None,
+            display: |value| f64::from(value) * 100.0,
+            store: |value| (value / 100.0) as f32,
+            clamp: |value| value.clamp(-MAX_SPEED_RAMP, MAX_SPEED_RAMP),
+        },
+    ));
+    vec![section.into_widget()]
+}
+
+fn speed_ramp(project: &Project, key: SelectedItem) -> Option<&TimelineValue<f32>> {
+    Some(&project.video_item(&key)?.speed_ramp)
+}
+
+fn speed_ramp_mut(project: &mut Project, key: SelectedItem) -> Option<&mut TimelineValue<f32>> {
+    Some(&mut project.video_item_mut(&key)?.speed_ramp)
 }

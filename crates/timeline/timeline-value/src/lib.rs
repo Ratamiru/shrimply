@@ -13,8 +13,8 @@ use uuid::Uuid;
 
 mod math;
 
+pub use math::{scalar_integral, text_edit_count, vector_value_at};
 use math::{scalar_value_at, text_value_at};
-pub use math::{text_edit_count, vector_value_at};
 pub use shrimply_interpolation::Interpolation;
 
 pub use shrimply_math_core::{

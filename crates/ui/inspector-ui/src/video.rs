@@ -207,6 +207,7 @@ impl Inspectable for VideoItem {
             | shrimply_project::project::VideoItemContent::FoldedSequence(_) => {
                 if !self.is_static_visual_media() {
                     playback_items.push(playback::speed_item(self));
+                    playback_items.push(playback::speed_ramp_item(self));
                 }
                 if matches!(
                     self.content,
@@ -261,7 +262,7 @@ impl Inspectable for VideoItem {
         }
         if !matches!(
             self.content,
-            VideoItemContent::Media | VideoItemContent::Gif | VideoItemContent::Background(_)
+            VideoItemContent::Gif | VideoItemContent::Background(_)
         ) {
             playback_items.push(playback::frame_rate_item(self));
         }

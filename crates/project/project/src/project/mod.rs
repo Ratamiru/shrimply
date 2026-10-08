@@ -376,6 +376,10 @@ pub struct VisualItem {
         serialize_with = "serialize_fraction"
     )]
     pub playback_fps: Fraction,
+    /// Speed multiplier over item time on top of `playback_speed`; keyframe it for speed ramps.
+    /// The source position advances by the area under this curve.
+    #[serde(default = "default_speed_ramp")]
+    pub speed_ramp: TimelineValue<f32>,
     pub repeat_strategy: RepeatStrategy,
     #[serde(default)]
     pub stabilize_video: bool,
@@ -1412,6 +1416,9 @@ impl VideoItem {
     }
 }
 
+pub fn default_speed_ramp() -> TimelineValue<f32> {
+    TimelineValue::new_const(1.0)
+}
 
 fn default_true() -> bool {
     true
@@ -1453,6 +1460,7 @@ fn ensure_video_property_ids(item: &mut VideoItem, seen: &mut HashSet<Uuid>) {
     }
     ensure_timeline_value_ids(&mut item.visibility, seen);
     ensure_timeline_value_ids(&mut item.sample_method, seen);
+    ensure_timeline_value_ids(&mut item.speed_ramp, seen);
     for modifier in &mut item.modifiers {
         ensure_unique_id(&mut modifier.id, seen);
         modifier.effect.ensure_ids(seen);

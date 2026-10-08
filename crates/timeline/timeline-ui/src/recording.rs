@@ -558,6 +558,7 @@ fn finish_video_recording(
         source_duration: finished.duration,
         playback_speed: default_playback_speed(),
         playback_fps: project::native_playback_fps(),
+        speed_ramp: project::default_speed_ramp(),
         repeat_strategy: RepeatStrategy::Hold,
         stabilize_video: false,
         stabilization_method: Default::default(),

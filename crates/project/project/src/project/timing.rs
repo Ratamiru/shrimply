@@ -51,11 +51,44 @@ pub fn video_source_time_at(item: &VideoItem, position: Time) -> Option<Time> {
         Time::ZERO,
         item.source_duration,
         item.time_offset.saturating_add(scaled_time_delta(
-            position.signed_sub(item.start),
+            speed_ramped_delta(
+                item,
+                posterized_elapsed(item, position.signed_sub(item.start)),
+            ),
             item.playback_speed,
         )),
         item.repeat_strategy,
     )
+}
+
+/// Holds each source frame for `1 / playback_fps` of item time, like Posterize Time.
+fn posterized_elapsed(item: &VideoItem, elapsed: Time) -> Time {
+    if item.playback_fps == native_playback_fps() {
+        return elapsed;
+    }
+    let step = shrimply_math_core::time_step_index(elapsed.seconds, item.playback_fps);
+    Time {
+        seconds: shrimply_math_core::fraction_from_integer(step) / item.playback_fps,
+    }
+}
+
+/// Item time after the speed ramp: the area under the ramp from the item start to `elapsed`.
+pub fn speed_ramped_delta(item: &VideoItem, elapsed: Time) -> Time {
+    match &item.speed_ramp.base {
+        TimelineBase::Const(speed) => Time {
+            seconds: elapsed.seconds * shrimply_math_core::fraction_from_f64(f64::from(*speed)),
+        },
+        TimelineBase::Keyframes(keyframes) => {
+            let offset = item.animation_time_offset;
+            Time {
+                seconds: shrimply_math_core::fraction_from_f64(scalar_integral(
+                    keyframes,
+                    offset,
+                    elapsed.saturating_add(offset),
+                )),
+            }
+        }
+    }
 }
 
 pub fn generated_source_time_at(item: &VideoItem, position: Time) -> Option<Time> {

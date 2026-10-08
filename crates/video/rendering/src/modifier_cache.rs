@@ -317,6 +317,7 @@ pub(crate) fn effective_item(
     effective.source_duration = entry.duration;
     effective.time_offset = Time::ZERO;
     effective.playback_speed = default_playback_speed();
+    effective.speed_ramp = shrimply_project::project::default_speed_ramp();
     effective.playback_fps = entry.fps;
     effective.repeat_strategy = RepeatStrategy::Empty;
     effective.transform = Transform::fill(canvas);

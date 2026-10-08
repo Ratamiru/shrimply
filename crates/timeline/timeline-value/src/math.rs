@@ -26,6 +26,68 @@ pub(crate) fn scalar_value_at<T: TimelineScalar>(
     T::from_f64(left_value + (right_value - left_value) * progress)
 }
 
+/// Trapezoid steps per keyframe segment when integrating eased curves.
+const CURVE_INTEGRATION_STEPS: u32 = 64;
+
+/// Area under a scalar keyframe curve from `start` to `end`, in value-seconds.
+///
+/// The curve holds its first and last values outside the keyframed range.
+pub fn scalar_integral<T: TimelineScalar>(
+    keyframes: &[TimelineCurveKeyframe<T>],
+    start: Time,
+    end: Time,
+) -> f64 {
+    scalar_antiderivative(keyframes, end) - scalar_antiderivative(keyframes, start)
+}
+
+/// Area from the first keyframe to `time`, negative before it.
+fn scalar_antiderivative<T: TimelineScalar>(
+    keyframes: &[TimelineCurveKeyframe<T>],
+    time: Time,
+) -> f64 {
+    let seconds = |from: Time, to: Time| (to.seconds - from.seconds).to_f64().unwrap_or_default();
+    let Some(first) = keyframes.first() else {
+        return 0.0;
+    };
+    if time <= first.time {
+        return first.value.to_f64() * seconds(first.time, time);
+    }
+    let mut area = 0.0;
+    for pair in keyframes.windows(2) {
+        let (left, right) = (&pair[0], &pair[1]);
+        let span = seconds(left.time, right.time);
+        if span > 0.0 {
+            let progress = (seconds(left.time, time.min(right.time)) / span).clamp(0.0, 1.0);
+            area += span * segment_area(left, right, progress);
+        }
+        if time <= right.time {
+            return area;
+        }
+    }
+    let last = keyframes.last().expect("keyframes have a first element");
+    area + last.value.to_f64() * seconds(last.time, time)
+}
+
+/// Area of one eased segment from its start to `progress`, in units of the segment length.
+fn segment_area<T: TimelineScalar>(
+    left: &TimelineCurveKeyframe<T>,
+    right: &TimelineCurveKeyframe<T>,
+    progress: f64,
+) -> f64 {
+    let left_value = left.value.to_f64();
+    let right_value = right.value.to_f64();
+    let value = |amount: f64| {
+        left_value + (right_value - left_value) * left.interpolation_to_next.value(amount)
+    };
+    let step = progress / f64::from(CURVE_INTEGRATION_STEPS);
+    (0..CURVE_INTEGRATION_STEPS)
+        .map(|index| {
+            let from = step * f64::from(index);
+            (value(from) + value(from + step)) * 0.5 * step
+        })
+        .sum()
+}
+
 pub fn vector_value_at<T: TimelineVector>(keyframes: &[TimelineCurveKeyframe<T>], time: Time) -> T {
     let Some((left, right, progress)) = keyframe_segment::<T>(keyframes, time) else {
         return endpoint_value::<T>(keyframes, time);
@@ -342,4 +404,39 @@ fn endpoint_value<T: TimelineValueType>(keyframes: &[T::Keyframe], time: Time) -
         .last()
         .map(|keyframe| keyframe.value().clone())
         .unwrap_or_else(T::default_value)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::Interpolation;
+
+    fn seconds(value: i64) -> Time {
+        Time {
+            seconds: Fraction::from(value),
+        }
+    }
+
+    fn keyframe(time: i64, value: f32) -> TimelineCurveKeyframe<f32> {
+        TimelineCurveKeyframe {
+            id: uuid::Uuid::nil(),
+            time: seconds(time),
+            value,
+            interpolation_to_next: Interpolation::Linear,
+        }
+    }
+
+    #[test]
+    fn integral_of_a_linear_ramp_is_its_trapezoid_area() {
+        let keyframes = [keyframe(0, 1.0), keyframe(2, 3.0)];
+        let area = scalar_integral(&keyframes, seconds(0), seconds(2));
+        assert!((area - 4.0).abs() < 1e-9, "{area}");
+    }
+
+    #[test]
+    fn integral_holds_end_values_outside_the_keyframes() {
+        let keyframes = [keyframe(1, 2.0), keyframe(2, 2.0)];
+        let area = scalar_integral(&keyframes, seconds(0), seconds(4));
+        assert!((area - 8.0).abs() < 1e-9, "{area}");
+    }
 }
