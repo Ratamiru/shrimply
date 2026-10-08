@@ -71,6 +71,18 @@ pub struct ChannelMixerParams {
 #[derive(Clone, Copy)]
 pub struct ChromaticAberrationParams {
     pub offsets: [f32; 4],
+    pub mode: ChromaticAberrationMode,
+    /// Normalized radial center, in canvas units from zero to one.
+    pub center: glam::Vec2,
+    /// Radial channel scale relative to the distance from the center.
+    pub radial_strength: f32,
+}
+
+#[derive(Clone, Copy)]
+#[repr(u32)]
+pub enum ChromaticAberrationMode {
+    Linear,
+    Radial,
 }
 
 #[derive(Clone, Copy)]

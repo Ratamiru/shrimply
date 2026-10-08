@@ -9,12 +9,55 @@ use shrimply_preview_core::{
 };
 use uuid::Uuid;
 
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ChromaticAberrationMode {
+    #[default]
+    Linear,
+    Radial,
+}
+
+shrimply_core::timeline_value::timeline_step_type!(
+    ChromaticAberrationMode,
+    ChromaticAberrationMode::Linear,
+    &[
+        TimelineStepVariant {
+            value: ChromaticAberrationMode::Linear,
+            key: "linear",
+            label: "Linear",
+            icon: None
+        },
+        TimelineStepVariant {
+            value: ChromaticAberrationMode::Radial,
+            key: "radial",
+            label: "Radial",
+            icon: None
+        },
+    ]
+);
+
+fn default_radial_strength() -> TimelineValue<f32> {
+    TimelineValue::<f32>::new_const(1.0)
+}
+
+fn default_center() -> TimelineValue<glam::Vec2> {
+    TimelineValue::<glam::Vec2>::new_const(glam::Vec2::splat(0.5))
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ChromaticAberrationModifier {
     pub red_offset_x: TimelineValue<f32>,
     pub red_offset_y: TimelineValue<f32>,
     pub blue_offset_x: TimelineValue<f32>,
     pub blue_offset_y: TimelineValue<f32>,
+    #[serde(default, deserialize_with = "deserialize_timeline_value")]
+    pub mode: TimelineValue<ChromaticAberrationMode>,
+    /// Radial channel separation, in percent of the distance from `center`.
+    #[serde(default = "default_radial_strength")]
+    pub radial_strength: TimelineValue<f32>,
+    /// Normalized radial center.
+    #[serde(default = "default_center")]
+    pub center: TimelineValue<glam::Vec2>,
 }
 
 #[derive(Clone)]
@@ -212,6 +255,9 @@ impl Default for ChromaticAberrationModifier {
             red_offset_y: TimelineValue::<f32>::new_const(0.0),
             blue_offset_x: TimelineValue::<f32>::new_const(2.0),
             blue_offset_y: TimelineValue::<f32>::new_const(0.0),
+            mode: TimelineValue::new_const(ChromaticAberrationMode::Linear),
+            radial_strength: default_radial_strength(),
+            center: default_center(),
         }
     }
 }
@@ -230,6 +276,9 @@ impl ModifierModel for ChromaticAberrationModifier {
         ensure_timeline_value_ids(&mut self.red_offset_y, seen);
         ensure_timeline_value_ids(&mut self.blue_offset_x, seen);
         ensure_timeline_value_ids(&mut self.blue_offset_y, seen);
+        ensure_timeline_value_ids(&mut self.mode, seen);
+        ensure_timeline_value_ids(&mut self.radial_strength, seen);
+        ensure_timeline_value_ids(&mut self.center, seen);
     }
 
     fn keyframe_span(&self) -> KeyframeSpan {
@@ -238,6 +287,9 @@ impl ModifierModel for ChromaticAberrationModifier {
             timeline_value_span(&self.red_offset_y),
             timeline_value_span(&self.blue_offset_x),
             timeline_value_span(&self.blue_offset_y),
+            timeline_value_span(&self.mode),
+            timeline_value_span(&self.radial_strength),
+            timeline_value_span(&self.center),
         ])
     }
 
@@ -247,6 +299,7 @@ impl ModifierModel for ChromaticAberrationModifier {
             &self.red_offset_y,
             &self.blue_offset_x,
             &self.blue_offset_y,
+            &self.radial_strength,
         ]
         .into_iter()
         .find(|value| value.id == id)
@@ -258,8 +311,17 @@ impl ModifierModel for ChromaticAberrationModifier {
             &mut self.red_offset_y,
             &mut self.blue_offset_x,
             &mut self.blue_offset_y,
+            &mut self.radial_strength,
         ]
         .into_iter()
         .find(|value| value.id == id)
+    }
+
+    fn number2(&self, id: Uuid) -> Option<&TimelineValue<glam::Vec2>> {
+        [&self.center].into_iter().find(|value| value.id == id)
+    }
+
+    fn number2_mut(&mut self, id: Uuid) -> Option<&mut TimelineValue<glam::Vec2>> {
+        [&mut self.center].into_iter().find(|value| value.id == id)
     }
 }
