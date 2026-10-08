@@ -1,4 +1,4 @@
-use super::{InspectorContext, ScalarOptions, scalar_row};
+use super::{InspectorContext, ScalarOptions, color_row, scalar_row};
 use gtk::prelude::*;
 use shrimply_video_modifiers::glow_bloom::GlowBloomModifier;
 use uuid::Uuid;
@@ -40,4 +40,17 @@ pub fn add_rows(value: &GlowBloomModifier, out: &gtk::Box, id: Uuid, context: &I
         },
         context,
     ));
+    out.append(&scalar_row(
+        "Levels",
+        &value.levels,
+        id,
+        ScalarOptions {
+            minimum: Some(1.0),
+            maximum: Some(shrimply_video_modifiers::glow_bloom::MAX_GLOW_LEVELS.into()),
+            unit: None,
+            rotating: false,
+        },
+        context,
+    ));
+    out.append(&color_row("Color", &value.color, id, context));
 }

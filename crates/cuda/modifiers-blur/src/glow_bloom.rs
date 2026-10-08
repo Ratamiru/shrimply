@@ -48,17 +48,17 @@ pub(crate) mod device {
 
     #[kernel]
     pub fn glow_bloom_vertical(
-        input: *const u32,
         horizontal: *const math::Color,
         width: u32,
         height: u32,
-        mut out: DisjointSlice<u32>,
+        mut accumulated: DisjointSlice<math::Color>,
         radius: u32,
-        intensity: f32,
+        weight: f32,
+        first_level: u32,
     ) {
         let idx = thread::index_1d();
         let i = idx.get();
-        let Some(output) = out.get_mut(idx) else {
+        let Some(output) = accumulated.get_mut(idx) else {
             return;
         };
         let x = i % width as usize;
@@ -73,19 +73,48 @@ pub(crate) mod device {
             glow.b += sample.b;
             glow.a += sample.a;
         }
-        let scale = intensity / (2 * radius + 1) as f32;
+        let scale = weight / (2 * radius + 1) as f32;
+        let previous = if first_level != 0 {
+            math::Color::TRANSPARENT
+        } else {
+            *output
+        };
+        *output = math::Color::new(
+            previous.r + glow.r * scale,
+            previous.g + glow.g * scale,
+            previous.b + glow.b * scale,
+            previous.a + glow.a * scale,
+        );
+    }
+
+    #[kernel]
+    pub fn glow_bloom_composite(
+        input: *const u32,
+        glow: *const math::Color,
+        mut out: DisjointSlice<u32>,
+        tint: u32,
+        intensity: f32,
+    ) {
+        let idx = thread::index_1d();
+        let i = idx.get();
+        let Some(output) = out.get_mut(idx) else {
+            return;
+        };
+        let tint = math::Color::from_rgba_u32(tint);
+        let glow = unsafe { *glow.add(i) };
         let base = math::Color::from_rgba_u32(unsafe { *input.add(i) });
-        let glow_alpha = (glow.a * scale).clamp(0.0, 1.0);
+        let glow_alpha = (glow.a * intensity * tint.a).clamp(0.0, 1.0);
         let output_alpha = base.a + glow_alpha * (1.0 - base.a);
         let inverse_alpha = if output_alpha > 0.0 {
             1.0 / output_alpha
         } else {
             0.0
         };
+        let scale = intensity * tint.a;
         *output = math::Color::new(
-            (base.r * base.a + glow.r * scale) * inverse_alpha,
-            (base.g * base.a + glow.g * scale) * inverse_alpha,
-            (base.b * base.a + glow.b * scale) * inverse_alpha,
+            (base.r * base.a + glow.r * tint.r * scale) * inverse_alpha,
+            (base.g * base.a + glow.g * tint.g * scale) * inverse_alpha,
+            (base.b * base.a + glow.b * tint.b * scale) * inverse_alpha,
             output_alpha,
         )
         .to_rgba_u32();
