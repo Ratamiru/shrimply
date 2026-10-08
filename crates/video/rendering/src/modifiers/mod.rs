@@ -16,6 +16,7 @@ mod emboss;
 mod erode_dilate;
 mod film_grain;
 mod fisheye;
+mod flash;
 mod gaussian_blur;
 mod glow_bloom;
 mod halftone;
@@ -206,6 +207,7 @@ fn raster_runtime(effect: &RasterModifierEffect) -> &dyn RasterModifierRuntime {
         RasterModifierEffect::ErodeDilate(effect) => effect,
         RasterModifierEffect::ColorCorrection(effect) => &**effect,
         RasterModifierEffect::Shake(effect) => &**effect,
+        RasterModifierEffect::Flash(effect) => effect,
     }
 }
 

@@ -105,6 +105,8 @@ mod erode_dilate;
 mod film_grain;
 #[path = "modifiers/fisheye.rs"]
 mod fisheye;
+#[path = "modifiers/flash.rs"]
+mod flash;
 #[path = "modifiers/gaussian_blur.rs"]
 mod gaussian_blur;
 #[path = "modifiers/glow_bloom.rs"]
@@ -543,6 +545,11 @@ fn modifier_item(
             RasterModifierEffect::Shake(value) => {
                 item!(value, shake, |value| ModifierEffect::raster(
                     RasterModifierEffect::Shake(value)
+                ))
+            }
+            RasterModifierEffect::Flash(value) => {
+                item!(value, flash, |value| ModifierEffect::raster(
+                    RasterModifierEffect::Flash(value)
                 ))
             }
         },

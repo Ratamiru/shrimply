@@ -28,6 +28,7 @@ pub mod emboss;
 pub mod erode_dilate;
 pub mod film_grain;
 pub mod fisheye;
+pub mod flash;
 pub mod gaussian_blur;
 pub mod glow_bloom;
 pub mod halftone;
@@ -266,6 +267,7 @@ pub enum RasterModifierEffect {
     ErodeDilate(erode_dilate::ErodeDilateModifier),
     ColorCorrection(Box<color_correction::ColorCorrectionModifier>),
     Shake(Box<shake::ShakeModifier>),
+    Flash(flash::FlashModifier),
 }
 
 impl VectorModifierEffect {
@@ -326,6 +328,7 @@ impl RasterModifierEffect {
         || Self::ZoomBlur(Default::default()),
         || Self::ErodeDilate(Default::default()),
         || Self::ColorCorrection(Default::default()),
+        || Self::Flash(Default::default()),
     ];
 }
 
@@ -456,6 +459,7 @@ impl_modifier_model_enum!(
     ErodeDilate,
     ColorCorrection,
     Shake,
+    Flash,
 );
 impl_modifier_model_enum!(
     ModifierEffect,

@@ -13,6 +13,7 @@ mod drop_shadow;
 mod edge_detection;
 mod emboss;
 mod film_grain;
+mod flash;
 mod halftone;
 mod invert;
 mod posterize;
