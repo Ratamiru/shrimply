@@ -3,10 +3,11 @@ use crate::ui::NumberPicker;
 use shrimply_project::project::{
     AudioClipTransition, AudioClipTransitionCurve, AudioTransition, DrawingFillMode, Interpolation,
     ItemAddress, MAX_VISUAL_CLIP_TRANSITION_CLOCK_SOFTNESS,
-    MAX_VISUAL_CLIP_TRANSITION_DISSOLVE_GRAIN_SIZE, MAX_VISUAL_CLIP_TRANSITION_SOFTNESS,
-    MAX_VISUAL_CLIP_TRANSITION_ZOOM_SCALE, MorphUnit, Project, TransitionSide,
-    VisualClipTransition, VisualClipTransitionKind, VisualTransition, VisualTransitionKind,
-    WriteOrdering,
+    MAX_VISUAL_CLIP_TRANSITION_DISSOLVE_GRAIN_SIZE, MAX_VISUAL_CLIP_TRANSITION_SCALE_PEAK,
+    MAX_VISUAL_CLIP_TRANSITION_SOFTNESS, MAX_VISUAL_CLIP_TRANSITION_TILE_COUNT,
+    MAX_VISUAL_CLIP_TRANSITION_ZOOM_SCALE, MIN_VISUAL_CLIP_TRANSITION_SCALE_PEAK, MorphUnit,
+    Project, TransitionSide, VisualClipTransition, VisualClipTransitionKind, VisualTransition,
+    VisualTransitionKind, WriteOrdering,
 };
 use shrimply_ui_foundation::tr;
 use shrimply_ui_foundation::ui::{ColorPicker, switch_row};
@@ -140,6 +141,8 @@ fn visual_clip_rows(
             (VisualClipTransitionKind::Slide, "Slide"),
             (VisualClipTransitionKind::Push, "Push"),
             (VisualClipTransitionKind::Zoom, "Zoom"),
+            (VisualClipTransitionKind::MirrorMosaic, "Mirror Mosaic"),
+            (VisualClipTransitionKind::ScaleTransform, "Scale Transform"),
         ],
         move |kind| {
             update_visual_clip(&change_context, true, |transition| {
@@ -319,8 +322,84 @@ fn visual_clip_rows(
             );
             add_visual_clip_fade(section, context, transition.fade_opacity);
         }
+        VisualClipTransitionKind::MirrorMosaic => {
+            add_visual_clip_center(section, context, transition);
+            add_visual_clip_number(
+                section,
+                context,
+                "Tiles",
+                transition.tile_count,
+                1.0,
+                f64::from(MAX_VISUAL_CLIP_TRANSITION_TILE_COUNT),
+                0.1,
+                1,
+                Some("x"),
+                |value| &mut value.tile_count,
+            );
+            add_visual_clip_direction(
+                section,
+                context,
+                transition.reverse,
+                [(false, "Multiply tiles"), (true, "Zoom in")],
+            );
+            add_visual_clip_mirror(section, context, transition);
+        }
+        VisualClipTransitionKind::ScaleTransform => {
+            add_visual_clip_center(section, context, transition);
+            add_visual_clip_number(
+                section,
+                context,
+                "Scale",
+                transition.scale_peak,
+                f64::from(MIN_VISUAL_CLIP_TRANSITION_SCALE_PEAK),
+                f64::from(MAX_VISUAL_CLIP_TRANSITION_SCALE_PEAK),
+                0.01,
+                2,
+                Some("x"),
+                |value| &mut value.scale_peak,
+            );
+            add_visual_clip_direction(
+                section,
+                context,
+                transition.reverse,
+                [(false, "Zoom in"), (true, "Zoom out")],
+            );
+            add_visual_clip_mirror(section, context, transition);
+        }
         VisualClipTransitionKind::CrossFade | VisualClipTransitionKind::Morph => {}
     }
+}
+
+fn add_visual_clip_direction(
+    section: &InspectorSection,
+    context: &InspectorContext,
+    reverse: bool,
+    labels: [(bool, &'static str); 2],
+) {
+    let direction_context = context.detached();
+    let direction = selector("Direction", reverse, labels, move |reverse| {
+        update_visual_clip(&direction_context, true, |transition| {
+            transition.reverse = reverse
+        })
+    });
+    section.add_wide_control(&direction);
+}
+
+fn add_visual_clip_mirror(
+    section: &InspectorSection,
+    context: &InspectorContext,
+    transition: &VisualClipTransition,
+) {
+    let x_context = context.detached();
+    let mirror_x = switch_row("Mirror X", None, transition.mirror_x, move |active| {
+        update_visual_clip(&x_context, true, |transition| transition.mirror_x = active)
+    });
+    section.add_wide_control(&mirror_x);
+    let y_context = context.detached();
+    let mirror_y = switch_row("Mirror Y", None, transition.mirror_y, move |active| {
+        update_visual_clip(&y_context, true, |transition| transition.mirror_y = active)
+    });
+    section.add_wide_control(&mirror_y);
 }
 
 #[allow(clippy::too_many_arguments)]

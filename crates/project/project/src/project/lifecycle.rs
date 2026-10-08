@@ -1078,6 +1078,8 @@ fn validate_visual_clip_transition_config(transition: &VisualClipTransition) -> 
         VisualClipTransitionKind::Iris
             | VisualClipTransitionKind::ClockWipe
             | VisualClipTransitionKind::Zoom
+            | VisualClipTransitionKind::MirrorMosaic
+            | VisualClipTransitionKind::ScaleTransform
     ) && (!transition.center.is_finite()
         || !(0.0..=1.0).contains(&transition.center.x)
         || !(0.0..=1.0).contains(&transition.center.y))
@@ -1101,6 +1103,19 @@ fn validate_visual_clip_transition_config(transition: &VisualClipTransition) -> 
                 .contains(&transition.zoom_start_scale))
     {
         return Err("visual clip transition zoom scale is out of range".into());
+    }
+    if transition.kind == VisualClipTransitionKind::MirrorMosaic
+        && (!transition.tile_count.is_finite()
+            || !(1.0..=MAX_VISUAL_CLIP_TRANSITION_TILE_COUNT).contains(&transition.tile_count))
+    {
+        return Err("visual clip transition tile count is out of range".into());
+    }
+    if transition.kind == VisualClipTransitionKind::ScaleTransform
+        && (!transition.scale_peak.is_finite()
+            || !(MIN_VISUAL_CLIP_TRANSITION_SCALE_PEAK..=MAX_VISUAL_CLIP_TRANSITION_SCALE_PEAK)
+                .contains(&transition.scale_peak))
+    {
+        return Err("visual clip transition scale peak is out of range".into());
     }
     Ok(())
 }

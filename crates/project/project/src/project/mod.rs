@@ -104,6 +104,9 @@ pub const MAX_VISUAL_CLIP_TRANSITION_SOFTNESS: f32 = 0.5;
 pub const MAX_VISUAL_CLIP_TRANSITION_CLOCK_SOFTNESS: f32 = 0.25;
 pub const MAX_VISUAL_CLIP_TRANSITION_DISSOLVE_GRAIN_SIZE: u32 = 64;
 pub const MAX_VISUAL_CLIP_TRANSITION_ZOOM_SCALE: f32 = 2.0;
+pub const MAX_VISUAL_CLIP_TRANSITION_TILE_COUNT: f32 = 16.0;
+pub const MIN_VISUAL_CLIP_TRANSITION_SCALE_PEAK: f32 = 1.0;
+pub const MAX_VISUAL_CLIP_TRANSITION_SCALE_PEAK: f32 = 8.0;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Project {
@@ -949,6 +952,21 @@ pub struct VisualClipTransition {
     pub zoom_start_scale: f32,
     #[serde(default)]
     pub fade_opacity: bool,
+    /// Mirror mosaic: tiles across the canvas at the switch point.
+    #[serde(default = "default_visual_clip_transition_tile_count")]
+    pub tile_count: f32,
+    /// Mirror mosaic and scale transform: reflect every other tile horizontally.
+    #[serde(default = "default_true")]
+    pub mirror_x: bool,
+    /// Mirror mosaic and scale transform: reflect every other tile vertically.
+    #[serde(default = "default_true")]
+    pub mirror_y: bool,
+    /// Mirror mosaic zooms in instead of multiplying tiles; scale transform zooms out.
+    #[serde(default)]
+    pub reverse: bool,
+    /// Scale transform: magnification reached at the switch point.
+    #[serde(default = "default_visual_clip_transition_scale_peak")]
+    pub scale_peak: f32,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -973,6 +991,8 @@ pub enum VisualClipTransitionKind {
     Slide,
     Push,
     Zoom,
+    MirrorMosaic,
+    ScaleTransform,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -1142,6 +1162,11 @@ impl VisualClipTransition {
             dissolve_grain_size: default_visual_clip_transition_dissolve_grain_size(),
             zoom_start_scale: 0.0,
             fade_opacity: false,
+            tile_count: default_visual_clip_transition_tile_count(),
+            mirror_x: true,
+            mirror_y: true,
+            reverse: false,
+            scale_peak: default_visual_clip_transition_scale_peak(),
         }
     }
 
@@ -1165,6 +1190,11 @@ impl VisualClipTransition {
         self.dissolve_grain_size = default_visual_clip_transition_dissolve_grain_size();
         self.zoom_start_scale = 0.0;
         self.fade_opacity = kind == VisualClipTransitionKind::Zoom;
+        self.tile_count = default_visual_clip_transition_tile_count();
+        self.mirror_x = true;
+        self.mirror_y = true;
+        self.reverse = false;
+        self.scale_peak = default_visual_clip_transition_scale_peak();
     }
 }
 
@@ -1176,7 +1206,9 @@ pub fn visual_clip_transition_default_interpolation(
         VisualClipTransitionKind::Iris
         | VisualClipTransitionKind::Slide
         | VisualClipTransitionKind::Push
-        | VisualClipTransitionKind::Zoom => Interpolation::SineInOut,
+        | VisualClipTransitionKind::Zoom
+        | VisualClipTransitionKind::MirrorMosaic
+        | VisualClipTransitionKind::ScaleTransform => Interpolation::SineInOut,
         VisualClipTransitionKind::CrossFade
         | VisualClipTransitionKind::FadeThroughColor
         | VisualClipTransitionKind::Wipe
@@ -1195,6 +1227,14 @@ fn default_visual_clip_transition_softness() -> f32 {
 
 fn default_visual_clip_transition_dissolve_grain_size() -> u32 {
     4
+}
+
+fn default_visual_clip_transition_tile_count() -> f32 {
+    3.0
+}
+
+fn default_visual_clip_transition_scale_peak() -> f32 {
+    2.0
 }
 
 fn default_transition_effect_amount() -> f32 {
@@ -1371,6 +1411,7 @@ impl VideoItem {
             .unwrap_or_else(|| Transform::fill(canvas_size))
     }
 }
+
 
 fn default_true() -> bool {
     true

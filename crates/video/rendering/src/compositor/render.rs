@@ -1739,6 +1739,14 @@ fn apply_visual_clip_transition(
                 ) * glam::Mat3::from_translation(-center),
             });
         }
+        VisualClipTransitionKind::MirrorMosaic | VisualClipTransitionKind::ScaleTransform => {
+            crate::visual_transition::apply_clip_tiling(
+                visual,
+                definition,
+                transition.progress,
+                incoming,
+            );
+        }
         VisualClipTransitionKind::Morph
         | VisualClipTransitionKind::CrossFade
         | VisualClipTransitionKind::FadeThroughColor

@@ -40,6 +40,62 @@ fn origami_transition(
 ) {
 }
 
+#[kernel]
+fn mirror_tile(
+    _: *const u32,
+    _: u32,
+    _: u32,
+    _: DisjointSlice<u32>,
+    _: shrimply_render_core::MirrorTileParams,
+) {
+}
+
+struct MirrorTile {
+    center: glam::Vec2,
+    tiles: f32,
+    mirror_x: bool,
+    mirror_y: bool,
+}
+
+impl GpuModifier for MirrorTile {
+    fn name(&self) -> &'static str {
+        "Mirror tile transition"
+    }
+
+    fn apply(
+        &self,
+        context: &mut ModifierContext<'_>,
+        input: CanvasRgbaFrame,
+    ) -> Result<CanvasRgbaFrame, String> {
+        let width = input.width();
+        let height = input.height();
+        let count = width as usize * height as usize;
+        let mut pass = input.into_pass(context)?;
+        let module = context.modifier_module(crate::gpu::modifiers::ModifierModule::Geometry)?;
+        unsafe {
+            cuda_host::cuda_launch! {
+                kernel: mirror_tile,
+                stream: context.stream(), module: &module,
+                config: LaunchConfig::for_num_elems(u32::try_from(count).map_err(|_| "canvas is too large")?),
+                args: [
+                    pass.input_ptr(),
+                    width,
+                    height,
+                    slice_mut(pass.output_buffer()),
+                    shrimply_render_core::MirrorTileParams {
+                        center: self.center * glam::Vec2::new(width as f32, height as f32),
+                        tiles: self.tiles,
+                        mirror_x: u32::from(self.mirror_x),
+                        mirror_y: u32::from(self.mirror_y),
+                    }
+                ]
+            }
+        }
+        .map_err(|error| format!("launch mirror tile CUDA kernel: {error:?}"))?;
+        Ok(pass.finish(context))
+    }
+}
+
 struct Mask {
     kind: VisualTransitionMaskKind,
     visibility: f32,
@@ -368,5 +424,37 @@ pub(crate) fn apply_clip_mask(
         normalized_center,
         grain_size,
         line_variation: 0.0,
+    }));
+}
+
+/// Mirror mosaic and scale transform: each clip shows only on its side of the switch point and
+/// is tiled with mirror-repeat addressing around the transition center.
+pub(crate) fn apply_clip_tiling(
+    visual: &mut Visual,
+    transition: &VisualClipTransition,
+    progress: f32,
+    incoming: bool,
+) {
+    if incoming != (progress >= crate::math::CLIP_TILING_SWITCH_PROGRESS) {
+        visual.multiply_opacity(0.0);
+        return;
+    }
+    let tiles = match transition.kind {
+        VisualClipTransitionKind::MirrorMosaic => {
+            crate::math::mirror_mosaic_tiles(transition.tile_count, transition.reverse, progress)
+        }
+        VisualClipTransitionKind::ScaleTransform => {
+            crate::math::scale_transform_tiles(transition.scale_peak, transition.reverse, progress)
+        }
+        _ => unreachable!("clip tiling requested for a non-tiling transition"),
+    };
+    if tiles == 1.0 {
+        return;
+    }
+    visual.push_pixel(Box::new(MirrorTile {
+        center: transition.center,
+        tiles,
+        mirror_x: transition.mirror_x,
+        mirror_y: transition.mirror_y,
     }));
 }

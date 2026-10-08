@@ -10,6 +10,7 @@ mod fisheye;
 mod kaleidoscope;
 mod lens_distortion;
 mod mirror;
+mod mirror_tile;
 mod pixelate_mosaic;
 mod twirl;
 mod wave_ripple;

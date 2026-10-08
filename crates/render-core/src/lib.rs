@@ -86,6 +86,16 @@ pub enum ChromaticAberrationMode {
 }
 
 #[derive(Clone, Copy)]
+pub struct MirrorTileParams {
+    /// Canvas pixel that stays fixed while the tiling scales around it.
+    pub center: glam::Vec2,
+    /// Source pixels per canvas pixel; values above one show more than one tile.
+    pub tiles: f32,
+    pub mirror_x: u32,
+    pub mirror_y: u32,
+}
+
+#[derive(Clone, Copy)]
 pub struct ColorizeDuotoneParams {
     pub shadow: Color,
     pub highlight: Color,

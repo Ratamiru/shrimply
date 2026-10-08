@@ -913,9 +913,63 @@ pub fn shake_transform(
     }
 }
 
+/// Transition progress at which the outgoing clip hands over to the incoming clip.
+pub const CLIP_TILING_SWITCH_PROGRESS: f32 = 0.5;
+
+/// Source pixels per canvas pixel for the mirror mosaic transition.
+///
+/// The tiling multiplies geometrically up to `tile_count` at the switch point and back to one,
+/// or zooms in by the same factor when `reverse` is set.
+pub fn mirror_mosaic_tiles(tile_count: f32, reverse: bool, progress: f32) -> f32 {
+    let peak = 1.0 - (progress / CLIP_TILING_SWITCH_PROGRESS - 1.0).abs();
+    let target = if reverse {
+        tile_count.recip()
+    } else {
+        tile_count
+    };
+    target.powf(peak.clamp(0.0, 1.0))
+}
+
+/// Source pixels per canvas pixel for the scale transform transition.
+///
+/// The outgoing clip magnifies to `scale_peak` and the incoming clip continues from the inverse
+/// magnification back to one, so the zoom keeps one direction through the cut.
+pub fn scale_transform_tiles(scale_peak: f32, reverse: bool, progress: f32) -> f32 {
+    let peak = if reverse {
+        scale_peak.recip()
+    } else {
+        scale_peak
+    };
+    let exponent = progress.clamp(0.0, 1.0) / CLIP_TILING_SWITCH_PROGRESS;
+    let exponent = if progress < CLIP_TILING_SWITCH_PROGRESS {
+        exponent
+    } else {
+        exponent - 2.0
+    };
+    peak.powf(exponent).recip()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn mirror_mosaic_returns_to_the_untiled_frame_at_both_ends() {
+        assert_eq!(mirror_mosaic_tiles(3.0, false, 0.0), 1.0);
+        assert_eq!(mirror_mosaic_tiles(3.0, false, 1.0), 1.0);
+        assert_eq!(mirror_mosaic_tiles(3.0, false, 0.5), 3.0);
+        assert_eq!(mirror_mosaic_tiles(4.0, true, 0.5), 0.25);
+    }
+
+    #[test]
+    fn scale_transform_continues_its_zoom_through_the_switch() {
+        assert_eq!(scale_transform_tiles(2.0, false, 0.0), 1.0);
+        assert_eq!(scale_transform_tiles(2.0, false, 1.0), 1.0);
+        let before = scale_transform_tiles(2.0, false, 0.499_999);
+        let after = scale_transform_tiles(2.0, false, 0.5);
+        assert!((before - 0.5).abs() < 1e-4, "{before}");
+        assert!((after - 2.0).abs() < 1e-6, "{after}");
+    }
 
     #[test]
     fn smooth_noise_stays_in_range_and_hits_lattice_values() {
