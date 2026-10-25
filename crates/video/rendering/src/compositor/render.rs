@@ -1599,48 +1599,36 @@ fn generated_transition(
         .then(|| active_visual_transition(item, position))
         .flatten()
         .and_then(|(side, transition, _, progress)| {
-            matches!(
-                transition.kind,
-                VisualTransitionKind::Morph
-                    | VisualTransitionKind::Write
-                    | VisualTransitionKind::Drawing
-                    | VisualTransitionKind::Create
-                    | VisualTransitionKind::FacetAssembly
-                    | VisualTransitionKind::Coalesce
-                    | VisualTransitionKind::ContourCurrent
-                    | VisualTransitionKind::SoftRefraction
-                    | VisualTransitionKind::MorphologicalResolve
-                    | VisualTransitionKind::LivingFill
-                    | VisualTransitionKind::Diffusion
-                    | VisualTransitionKind::ReverseDiffusion
-            )
-            .then_some(GeneratedTransition {
-                kind: transition.kind,
-                side,
-                progress,
-                interpolation: transition.interpolation,
-                ordering: transition.write_ordering,
-                drawing_stroke_overlap: transition.drawing_stroke_overlap,
-                drawing_stroke_length_weight: transition.drawing_stroke_length_weight,
-                drawing_fill_mode: transition.drawing_fill_mode,
-                morph_unit: transition.morph_unit,
-                effect_amount: transition.effect_amount,
-                effect_detail: transition.effect_detail,
-                effect_angle_degrees: transition.effect_angle_degrees,
-                effect_fade: transition.effect_fade,
-                effect_seed: if transition.effect_evolve_seed {
-                    let start = match side {
-                        TransitionSide::Intro => item.start,
-                        TransitionSide::Outro => item.end.saturating_sub(transition.duration),
-                    };
-                    crate::math::seed_at_frequency(
-                        position.saturating_sub(start),
-                        transition.effect_seed_frequency,
-                    )
-                } else {
-                    19
-                },
-            })
+            transition
+                .kind
+                .needs_vector_source()
+                .then_some(GeneratedTransition {
+                    kind: transition.kind,
+                    side,
+                    progress,
+                    interpolation: transition.interpolation,
+                    ordering: transition.write_ordering,
+                    drawing_stroke_overlap: transition.drawing_stroke_overlap,
+                    drawing_stroke_length_weight: transition.drawing_stroke_length_weight,
+                    drawing_fill_mode: transition.drawing_fill_mode,
+                    morph_unit: transition.morph_unit,
+                    effect_amount: transition.effect_amount,
+                    effect_detail: transition.effect_detail,
+                    effect_angle_degrees: transition.effect_angle_degrees,
+                    effect_fade: transition.effect_fade,
+                    effect_seed: if transition.effect_evolve_seed {
+                        let start = match side {
+                            TransitionSide::Intro => item.start,
+                            TransitionSide::Outro => item.end.saturating_sub(transition.duration),
+                        };
+                        crate::math::seed_at_frequency(
+                            position.saturating_sub(start),
+                            transition.effect_seed_frequency,
+                        )
+                    } else {
+                        19
+                    },
+                })
         })
 }
 

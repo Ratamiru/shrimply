@@ -1074,6 +1074,27 @@ pub enum VisualTransitionKind {
     StreakWipe,
 }
 
+impl VisualTransitionKind {
+    /// Kinds that regenerate vector content, so they only apply to paths, text and drawings.
+    pub fn needs_vector_source(self) -> bool {
+        matches!(
+            self,
+            Self::Morph
+                | Self::Write
+                | Self::Drawing
+                | Self::Create
+                | Self::FacetAssembly
+                | Self::Coalesce
+                | Self::ContourCurrent
+                | Self::SoftRefraction
+                | Self::MorphologicalResolve
+                | Self::LivingFill
+                | Self::Diffusion
+                | Self::ReverseDiffusion
+        )
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AudioTransitionKind {
