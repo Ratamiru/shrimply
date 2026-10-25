@@ -55,13 +55,13 @@ fn main() -> glib::ExitCode {
     let mut args = std::env::args_os().skip(1);
     let Some(project_path) = args.next().map(PathBuf::from) else {
         eprintln!(
-            "usage: shrimply-editor PROJECT.shrimp|PROJECT.json|TIMELINE.otio|PROJECT.kdenlive"
+            "usage: shrimply-editor PROJECT.shrimp|PROJECT.json|TIMELINE.otio|PROJECT.kdenlive|SCRIPT.md"
         );
         return glib::ExitCode::FAILURE;
     };
     if args.next().is_some() {
         eprintln!(
-            "usage: shrimply-editor PROJECT.shrimp|PROJECT.json|TIMELINE.otio|PROJECT.kdenlive"
+            "usage: shrimply-editor PROJECT.shrimp|PROJECT.json|TIMELINE.otio|PROJECT.kdenlive|SCRIPT.md"
         );
         return glib::ExitCode::FAILURE;
     }
@@ -451,6 +451,11 @@ fn begin_project_load(app: &adw::Application, path: PathBuf) {
         choose_otio_settings(app, &window, path);
         return;
     }
+    if has_script_extension(&path) {
+        window.present();
+        start_import(app, &window, path, Import::Script);
+        return;
+    }
     if has_kdenlive_extension(&path) {
         window.present();
         confirm_kdenlive_conversion(app, &window, path);
@@ -636,59 +641,101 @@ fn choose_otio_settings(app: &adw::Application, window: &adw::ApplicationWindow,
                 );
                 return;
             };
-            start_otio_import(&app, &window, source, canvas_size, fps);
+            start_import(&app, &window, source, Import::Otio { canvas_size, fps });
         },
     );
 }
 
-fn start_otio_import(
+/// Timelines converted into a new Shrimply project before they open.
+#[derive(Clone, Copy)]
+enum Import {
+    Otio {
+        canvas_size: project::CanvasSize,
+        fps: Fraction,
+    },
+    /// A Markdown script; it carries its own canvas and frame rate.
+    Script,
+}
+
+struct ImportLabels {
+    error: &'static str,
+    save: &'static str,
+    warnings: &'static str,
+}
+
+fn import_labels(import: Import) -> ImportLabels {
+    match import {
+        Import::Otio { .. } => ImportLabels {
+            error: "Could not import OTIO",
+            save: "Import OTIO as Shrimply Project",
+            warnings: "OTIO imported with limitations",
+        },
+        Import::Script => ImportLabels {
+            error: "Could not import script",
+            save: "Import Script as Shrimply Project",
+            warnings: "Script imported with warnings",
+        },
+    }
+}
+
+fn start_import(
     app: &adw::Application,
     window: &adw::ApplicationWindow,
     source: PathBuf,
-    canvas_size: project::CanvasSize,
-    fps: Fraction,
+    import: Import,
 ) {
     let (sender, receiver) = async_channel::bounded(1);
     let worker_source = source.clone();
     thread::spawn(move || {
-        let result =
-            shrimply_otio::from_file(&worker_source, canvas_size, fps).and_then(|import| {
-                let native = project::from_json_value_with_frame_grid_repair(import.project)?;
-                Ok((native, import.warnings))
-            });
+        let imported = match import {
+            Import::Otio { canvas_size, fps } => {
+                shrimply_otio::from_file(&worker_source, canvas_size, fps)
+                    .map(|import| (import.project, import.warnings))
+            }
+            Import::Script => shrimply_script::from_file(&worker_source)
+                .map(|import| (import.project, import.warnings)),
+        };
+        let result = imported.and_then(|(document, warnings)| {
+            let native = project::from_json_value_with_frame_grid_repair(document)?;
+            Ok((native, warnings))
+        });
         let _ = sender.send_blocking(result);
     });
     let app = app.clone();
     let window = window.clone();
+    let labels = import_labels(import);
     glib::spawn_future_local(async move {
         let Ok(result) = receiver.recv().await else {
             show_project_load_error(
                 &app,
                 &window,
-                "Could not import OTIO",
-                "The OTIO importer stopped unexpectedly.",
+                labels.error,
+                "The importer stopped unexpectedly.",
             );
             return;
         };
         match result {
-            Ok((project, warnings)) => finish_otio_import(&app, &window, source, project, warnings),
-            Err(error) => show_project_load_error(&app, &window, "Could not import OTIO", &error),
+            Ok((project, warnings)) => {
+                finish_import(&app, &window, source, project, warnings, labels)
+            }
+            Err(error) => show_project_load_error(&app, &window, labels.error, &error),
         }
     });
 }
 
-fn finish_otio_import(
+fn finish_import(
     app: &adw::Application,
     window: &adw::ApplicationWindow,
     source: PathBuf,
     outcome: project::ProjectValidationOutcome,
     warnings: Vec<String>,
+    labels: ImportLabels,
 ) {
     let saved = move |app: &adw::Application, window: &adw::ApplicationWindow, path: PathBuf| {
         if warnings.is_empty() {
             load_project(app, window, path);
         } else {
-            show_otio_warnings(app, window, path, warnings);
+            show_import_warnings(app, window, path, labels.warnings, warnings);
         }
     };
     match outcome {
@@ -696,20 +743,13 @@ fn finish_otio_import(
             app,
             window,
             imported_project_filename(&source),
-            "Import OTIO as Shrimply Project",
-            "Could not import OTIO",
+            labels.save,
+            labels.error,
             project,
             saved,
         ),
         project::ProjectValidationOutcome::FrameGridRepair(project) => {
-            show_frame_grid_repair_dialog(
-                app,
-                window,
-                source,
-                project,
-                "Could not import OTIO",
-                saved,
-            )
+            show_frame_grid_repair_dialog(app, window, source, project, labels.error, saved)
         }
     }
 }
@@ -854,16 +894,14 @@ fn fixed_project_filename(source: &Path) -> String {
     format!("{stem}_{timestamp}-fix.shrimp")
 }
 
-fn show_otio_warnings(
+fn show_import_warnings(
     app: &adw::Application,
     window: &adw::ApplicationWindow,
     path: PathBuf,
+    heading: &str,
     warnings: Vec<String>,
 ) {
-    let dialog = adw::AlertDialog::new(
-        Some("OTIO imported with limitations"),
-        Some(&warnings.join("\n")),
-    );
+    let dialog = adw::AlertDialog::new(Some(heading), Some(&warnings.join("\n")));
     dialog.add_response("open", "Open Project");
     dialog.set_default_response(Some("open"));
     dialog.set_close_response("open");
@@ -881,6 +919,12 @@ fn has_otio_extension(path: &Path) -> bool {
     path.extension()
         .and_then(|extension| extension.to_str())
         .is_some_and(|extension| extension.eq_ignore_ascii_case("otio"))
+}
+
+fn has_script_extension(path: &Path) -> bool {
+    path.extension()
+        .and_then(|extension| extension.to_str())
+        .is_some_and(|extension| extension.eq_ignore_ascii_case("md"))
 }
 
 fn has_kdenlive_extension(path: &Path) -> bool {

@@ -5460,6 +5460,7 @@ dependencies = [
  "shrimply-preview-ui",
  "shrimply-project",
  "shrimply-property-transfer",
+ "shrimply-script",
  "shrimply-server-client",
  "shrimply-state",
  "shrimply-support",
@@ -6188,6 +6189,19 @@ dependencies = [
  "shrimply-shape-3d",
  "shrimply-text-3d",
  "uuid",
+]
+
+[[package]]
+name = "shrimply-script"
+version = "0.1.0"
+dependencies = [
+ "ffmpeg-next",
+ "glam 0.33.5",
+ "serde_json",
+ "shrimply-core",
+ "shrimply-math-core",
+ "shrimply-otio",
+ "shrimply-project",
 ]
 
 [[package]]

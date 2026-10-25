@@ -27,6 +27,7 @@ shrimply-math-core = { path = "../../math/core" }
 shrimply-manim-parser = { path = "../../manim/manim-parser" }
 shrimply-mcp = { path = "../../mcp", default-features = false }
 shrimply-otio = { path = "../../project/otio" }
+shrimply-script = { path = "../../project/script" }
 shrimply-kdenlive = { path = "../../project/kdenlive" }
 shrimply-preview-ui = { path = "../../preview/preview-ui" }
 shrimply-playback-performance = { path = "../../preview/playback-performance" }

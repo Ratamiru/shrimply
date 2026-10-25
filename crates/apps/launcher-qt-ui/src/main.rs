@@ -12,7 +12,7 @@ fn main() -> ExitCode {
     if let Some(path) = args.next() {
         if args.next().is_some() {
             eprintln!(
-                "usage: shrimply-qt [PROJECT.shrimp|PROJECT.json|TIMELINE.otio|PROJECT.kdenlive]"
+                "usage: shrimply-qt [PROJECT.shrimp|PROJECT.json|TIMELINE.otio|PROJECT.kdenlive|SCRIPT.md]"
             );
             return ExitCode::FAILURE;
         }

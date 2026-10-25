@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command};
 use std::time::UNIX_EPOCH;
 
-pub const PROJECT_FILE_PATTERNS: [&str; 4] = ["*.shrimp", "*.json", "*.otio", "*.kdenlive"];
+pub const PROJECT_FILE_PATTERNS: [&str; 5] = ["*.shrimp", "*.json", "*.otio", "*.kdenlive", "*.md"];
 
 #[derive(Default)]
 pub struct Launcher {

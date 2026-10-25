@@ -449,7 +449,7 @@ fn media_path(reference: &Value, base: &Path) -> Result<PathBuf, String> {
     })
 }
 
-fn visual_source(path: &Path) -> VisualSource {
+pub fn visual_source(path: &Path) -> VisualSource {
     let extension = path
         .extension()
         .and_then(|extension| extension.to_str())
@@ -472,7 +472,7 @@ fn visual_source(path: &Path) -> VisualSource {
     }
 }
 
-fn visual_dimensions(path: &Path, content: &VisualSource) -> Option<UVec2> {
+pub fn visual_dimensions(path: &Path, content: &VisualSource) -> Option<UVec2> {
     if matches!(content, VisualSource::Pdf(_)) {
         let page = shrimply_pdf::page_sizes(fs::read(path).ok()?)
             .ok()?
