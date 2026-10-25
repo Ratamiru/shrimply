@@ -7,6 +7,7 @@ Media
    blender
    kdenlive-import
    manim
+   script-import
 
 .. |add| image:: ../../../assets/icons/plus-symbolic.svg
    :class: action-icon
@@ -89,7 +90,8 @@ Shrimply recognizes these source types:
      - :doc:`Blender files <blender>` and :doc:`Manim scenes <manim>`
 
 Project opening additionally accepts native Shrimply projects, Shrimply JSON,
-OpenTimelineIO, and :doc:`Kdenlive projects <kdenlive-import>`.
+OpenTimelineIO, :doc:`Kdenlive projects <kdenlive-import>`, and
+:doc:`Markdown scripts <script-import>`.
 
 Video decoding requires both a matching FFmpeg CUDA decoder and codec support
 from the installed NVIDIA GPU.
