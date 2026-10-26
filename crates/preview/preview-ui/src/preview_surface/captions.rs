@@ -107,22 +107,28 @@ fn caption_paragraph(
     paragraph
 }
 
+/// Where and how the preview lays out captions.
+#[derive(Clone, Copy)]
+pub(super) struct CaptionFrame {
+    pub(super) rect: Rect,
+    pub(super) font_size: f32,
+    pub(super) background_color: Color<u8>,
+    pub(super) bottom_inset: f32,
+}
+
 pub(super) fn draw_captions(
     painter: &TimelinePainter,
     project: &Project,
     position: Time,
-    preview_rect: Rect,
-    caption_font_size: f32,
-    caption_background_color: Color<u8>,
-    caption_bottom_inset: f32,
+    frame: CaptionFrame,
     split: Option<(&ItemAddress, Vec2, Color)>,
 ) {
-    if preview_rect.width() <= 1.0 || preview_rect.height() <= 1.0 {
+    if frame.rect.width() <= 1.0 || frame.rect.height() <= 1.0 {
         return;
     }
 
-    let active = active_captions(project, position, caption_background_color);
-    let mut bottom_stack = caption_bottom_inset;
+    let active = active_captions(project, position, frame.background_color);
+    let mut bottom_stack = frame.bottom_inset;
     for item in active {
         let automatic_bottom = item.h_align == HorizontalAlign::Center
             && item.v_align == VerticalAlign::Bottom
@@ -131,8 +137,8 @@ pub(super) fn draw_captions(
         let layout = caption_layout(
             &item,
             position,
-            preview_rect,
-            caption_font_size,
+            frame.rect,
+            frame.font_size,
             automatic_bottom,
             if automatic_bottom { bottom_stack } else { 0.0 },
         );
@@ -157,18 +163,15 @@ pub(super) fn split_at_position(
     project: &Project,
     address: &ItemAddress,
     position: Time,
-    preview_rect: Rect,
-    caption_font_size: f32,
-    caption_background_color: Color<u8>,
-    caption_bottom_inset: f32,
+    frame: CaptionFrame,
     point: Vec2,
 ) -> Option<usize> {
     let selected = project.caption_item(address)?;
     if !(selected.start < position && position < selected.end) {
         return None;
     }
-    let mut bottom_stack = caption_bottom_inset;
-    for item in active_captions(project, position, caption_background_color) {
+    let mut bottom_stack = frame.bottom_inset;
+    for item in active_captions(project, position, frame.background_color) {
         let automatic_bottom = item.h_align == HorizontalAlign::Center
             && item.v_align == VerticalAlign::Bottom
             && item.position_x == 50
@@ -176,8 +179,8 @@ pub(super) fn split_at_position(
         let layout = caption_layout(
             &item,
             position,
-            preview_rect,
-            caption_font_size,
+            frame.rect,
+            frame.font_size,
             automatic_bottom,
             if automatic_bottom { bottom_stack } else { 0.0 },
         );

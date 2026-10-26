@@ -514,7 +514,7 @@ fn confirm_kdenlive_conversion(
 
 enum KdenliveImportMessage {
     Progress(&'static str),
-    Finished(Result<(project::ProjectValidationOutcome, Vec<String>), String>),
+    Finished(Box<Result<(project::ProjectValidationOutcome, Vec<String>), String>>),
 }
 
 fn start_kdenlive_import(app: &adw::Application, window: &adw::ApplicationWindow, source: PathBuf) {
@@ -537,7 +537,7 @@ fn start_kdenlive_import(app: &adw::Application, window: &adw::ApplicationWindow
                 .map_err(|error| error.to_string())?;
             Ok((native, import.warnings))
         })();
-        let _ = sender.send_blocking(KdenliveImportMessage::Finished(result));
+        let _ = sender.send_blocking(KdenliveImportMessage::Finished(Box::new(result)));
     });
     let app = app.clone();
     let window = window.clone();
@@ -548,7 +548,7 @@ fn start_kdenlive_import(app: &adw::Application, window: &adw::ApplicationWindow
                     window.set_content(Some(&project_loading_view_with_subtitle(subtitle)));
                 }
                 KdenliveImportMessage::Finished(result) => {
-                    match result {
+                    match *result {
                         Ok((project, warnings)) => {
                             for warning in &warnings {
                                 tracing::warn!(limitation = %warning, "Kdenlive import limitation");
@@ -589,7 +589,7 @@ fn finish_kdenlive_import(
             "Import Kdenlive as Shrimply Project",
             "Could not import Kdenlive project",
             project,
-            |app, window, path| load_project(app, window, path),
+            load_project,
         ),
         project::ProjectValidationOutcome::FrameGridRepair(project) => {
             show_frame_grid_repair_dialog(
@@ -598,7 +598,7 @@ fn finish_kdenlive_import(
                 source,
                 project,
                 "Could not import Kdenlive project",
-                |app, window, path| load_project(app, window, path),
+                load_project,
             )
         }
     }
@@ -1040,7 +1040,7 @@ fn start_project_load(app: &adw::Application, window: &adw::ApplicationWindow, p
                     path,
                     project,
                     "Could not fix project",
-                    |app, window, path| load_project(app, window, path),
+                    load_project,
                 );
             }
             Err(project::ProjectLoadError::LockedByOtherInstance { pid }) => {

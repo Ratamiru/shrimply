@@ -1068,10 +1068,12 @@ fn attach_render(
                         timeline_painter,
                         &project,
                         position,
-                        surface_rect,
-                        caption_font_size,
-                        caption_background_color,
-                        caption_bottom_inset,
+                        captions::CaptionFrame {
+                            rect: surface_rect,
+                            font_size: caption_font_size,
+                            background_color: caption_background_color,
+                            bottom_inset: caption_bottom_inset,
+                        },
                         focused_caption
                             .as_ref()
                             .zip(caption_split_hover)
