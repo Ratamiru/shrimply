@@ -37,7 +37,7 @@ use dispatch::{
 mod geometry;
 #[path = "preview_surface/guides.rs"]
 mod guides;
-use geometry::{surface_viewport, video_content_rect};
+use geometry::{source_sizes, surface_viewport, text_source_size, video_content_rect};
 #[path = "preview_surface/renderer.rs"]
 mod renderer;
 use renderer::{Appearance, VideoRenderer};
@@ -821,66 +821,6 @@ fn prepare_target(
         provider,
         deferred_refresh: PreviewRefresh::NONE,
     })
-}
-
-fn source_sizes(project: &Project) -> HashMap<uuid::Uuid, GlamVec2> {
-    let fallback = GlamVec2::new(
-        project.canvas_size.width.max(1) as f32,
-        project.canvas_size.height.max(1) as f32,
-    );
-    project
-        .video_tracks
-        .iter()
-        .flat_map(|track| &track.items)
-        .chain(
-            project
-                .folded_sequences
-                .iter()
-                .flat_map(|sequence| &sequence.video_tracks)
-                .flat_map(|track| &track.items),
-        )
-        .map(|item| {
-            let size = GlamVec2::new(item.source_width as f32, item.source_height as f32);
-            (
-                item.id,
-                if size.min_element() > 0.0 {
-                    size
-                } else {
-                    fallback
-                },
-            )
-        })
-        .collect()
-}
-
-fn text_source_size(
-    text: &crate::project::TextItem,
-    evaluation: &VisualEvaluation,
-    expression_cache: &RefCell<TransformExpressionCache>,
-) -> GlamVec2 {
-    let mut expressions = expression_cache.borrow_mut();
-    let content = crate::transform_eval::resolve_text(&text.text, evaluation, &mut expressions);
-    let font_size =
-        crate::transform_eval::resolve_scalar(&text.font_size, evaluation, &mut expressions)
-            .max(1.0);
-    let font_weight =
-        crate::transform_eval::resolve_scalar(&text.font_weight, evaluation, &mut expressions);
-    let tracking =
-        crate::transform_eval::resolve_scalar(&text.tracking, evaluation, &mut expressions);
-    let line_height =
-        crate::transform_eval::resolve_scalar(&text.line_height, evaluation, &mut expressions)
-            .max(f32::EPSILON);
-    crate::video::text_layout::layout(
-        text,
-        &content,
-        font_size,
-        font_weight,
-        tracking,
-        line_height,
-        evaluation.local_time(),
-    )
-    .size
-    .max(GlamVec2::ONE)
 }
 
 fn add_snap_providers(
